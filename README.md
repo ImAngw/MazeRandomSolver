@@ -1,4 +1,6 @@
-MazeRandomSolver - GPU Version\n
+MazeRandomSolver - GPU Version
+
+
 You need CUDA toolkit to execute the code
 
 In "maze_func.cu" you will find all the function you need to generate the maze
