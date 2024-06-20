@@ -86,7 +86,15 @@ void wall_filler(char **maze, Point current, int x_max, int y_max){
 }
 
 Point path_tracker(char **maze, Point start, int x_max, int y_max, int is_solution){
-    int tot_steps = (int) ( sqrt(pow(x_max, 2) + pow(y_max, 2)) * 1.75 );
+
+    int tot_steps;
+    if(is_solution == 1){
+        tot_steps = (int) (2.5 * x_max);
+    }
+    else {
+        tot_steps = (int) ( sqrt(pow(x_max, 2) + pow(y_max, 2)) * 1.75 );
+    }
+
     //printf("%d\n", tot_steps);
     int step = 0, len, choice;
     Point adjacent[4], current;
@@ -268,24 +276,145 @@ int cpu_random_solver(char **maze, int x_max, int y_max, Particles particles, in
     }
 }
 
-void rand_solver_cpu(const short *h_lin_maze, int x_start, int y_start, int x_ext, int y_ext, int n){
+float rand_solver_cpu(const short *h_lin_maze, int x_dim, int y_dim, int x_ext, int y_ext, int n, int *x_array, int *y_array, int max_steps){
 
-    int rand_choice, n_steps = 0, temp;
-    int x = x_start, y = y_start;
+    int rand_choice, n_steps = 0, temp, flag = 0;
+    clock_t  start, end;
 
-    while(n_steps < 1000){
+    start = clock();
+    while(/*flag == 0 &&*/ n_steps < 1){
         n_steps++;
         for (int i = 0; i < n; ++i){
-            rand_choice = rand() % (h_lin_maze[11 * y * XMAX + 11 * x + 2] ) + 1;
-            temp = h_lin_maze[11 * y * XMAX + 11 * x + 2 + 2 * rand_choice - 1];
-            y = (short)h_lin_maze[11 * y * XMAX + 11 * x + 2 + 2 * rand_choice];
-            x = (short)temp;
+            for (int j = 0; j < max_steps; j++){
+                rand_choice = rand() % (h_lin_maze[11 * y_array[i] * x_dim + 11 * x_array[i] + 2] ) + 1;
+                temp = h_lin_maze[11 * y_array[i] * x_dim + 11 * x_array[i] + 2 + 2 * rand_choice - 1];
+                y_array[i] = h_lin_maze[11 * y_array[i] * x_dim + 11 * x_array[i] + 2 + 2 * rand_choice];
+                x_array[i] = temp;
 
-            //x_vector[i] == x_ext && y_vector[i] == y_ext
-            if (x == x_ext && y_start == y){
-                //printf("Solution found in %d steps\n", n_steps);
-                //return;
+                //x_vector[i] == x_ext && y_vector[i] == y_ext
+
+                if (x_array[i] == x_ext && y_array[i] == y_ext){
+                    flag = 1;
+                    end = clock();
+                    //return (float) (end - start)/ CLOCKS_PER_SEC;
+                }
             }
         }
     }
+    end = clock();
+    return (float) (end - start)/ CLOCKS_PER_SEC;
 }
+
+
+
+
+
+
+int distance_evaluate(Point start, Point stop, int dist, int dev){
+    //printf("%d\n", dist);
+    int man_dist = abs(start.x - stop.x) + abs(start.y - stop.y);
+    if(man_dist >= dist - dev && man_dist <= dist + dev) return 1;
+    return 0;
+}
+
+
+Point performance_path_tracker(char **maze, Point start, int x_max, int y_max, std::vector<Point>& vec, int *start_found, Point init, Point *solution){
+
+    int tot_steps = (int) ( sqrt(pow(x_max, 2) + pow(y_max, 2)) * 1.75 );
+
+    //printf("%d\n", tot_steps);
+    int step = 0, len, choice;
+    Point adjacent[4], current;
+    current = start;
+
+    srand(time(nullptr));
+    len = return_empty_adjacent(maze, adjacent, start, x_max, y_max);
+
+    while(step < tot_steps){
+
+        if (len != 0){
+            if (len == 1){
+                vec.erase(std::remove(vec.begin(), vec.end(), current), vec.end());
+            }
+
+
+            choice = rand() % len;
+
+            if (*start_found == 0){
+                if (distance_evaluate(init, adjacent[choice],1.75 * x_max , 5) == 1){
+                    *start_found = 1;
+                    maze[adjacent[choice].y][adjacent[choice].x] = START;
+                    *solution = adjacent[choice];
+                    //printf("DISTANCE: %d\n", abs(init.x - adjacent[choice].x) + abs(init.y - adjacent[choice].y));
+                    break;
+                }
+            }
+
+            maze[adjacent[choice].y][adjacent[choice].x] = WAY;
+            current = adjacent[choice];
+            //printf("POINT: (%d, %d)\nADJACENTS\n", current.x, current.y);
+            len = return_empty_adjacent(maze, adjacent, current, x_max, y_max);
+
+            for (int i = 0; i < len; ++i) {
+                wall_filler(maze, adjacent[i], x_max, y_max);
+            }
+            //printf("______________\n\n");
+
+            vec.push_back(current);
+            len = return_empty_adjacent(maze, adjacent, current, x_max, y_max);
+
+        }
+
+        else{
+            vec.erase(std::remove(vec.begin(), vec.end(), current), vec.end());
+            break;
+        }
+
+        step++;
+    }
+
+    return current;
+}
+
+char **performance_maze_init(Point start, Point *solution, int x_max, int y_max){
+
+    int counter = 0, len;
+    std::vector <Point> vec(1);
+    vec[0] = start;
+
+    int *start_found;
+    start_found = (int*) malloc(sizeof(int));
+    *start_found = 0;
+
+    Point neigh[4], current = start;
+    char **maze = (char**) malloc (y_max * sizeof(char*));
+    if (maze == nullptr) return nullptr;
+
+    srand(time(nullptr));
+
+    for (int i = 0; i < y_max; ++i) {
+        maze[i] = (char*) malloc (x_max * sizeof (char));
+        if (maze[i] == nullptr) return nullptr;
+
+        for (int j = 0; j < x_max; ++j) {
+            if(i == 0 || i == y_max -1 || j == 0 || j == x_max - 1){
+                maze[i][j] = (i == start.y && j == start.x) ? WAY : WALL;
+            }
+            else{
+                maze[i][j] = EMPTY;
+            }
+        }
+    }
+
+    while (vec.size() != 0) {
+        current = vec[rand() % (int) vec.size()];
+        performance_path_tracker(maze, current, x_max, y_max, vec, start_found, start, solution);
+    }
+
+    free(start_found);
+    return maze;
+}
+
+
+
+

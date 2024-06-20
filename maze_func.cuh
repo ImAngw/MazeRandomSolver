@@ -20,9 +20,13 @@
 
 #define NITER 100
 
-typedef struct {
+typedef struct Point{
     int x;
     int y;
+
+    bool operator==(const Point& other) const {
+        return x == other.x && y == other.y;
+    }
 } Point;
 
 typedef struct {
@@ -44,8 +48,8 @@ typedef struct {
 char **maze_init(Point start, Point *solution, int x_max, int y_max);
 void print_maze(char **maze, int x_max, int y_max);
 int find_ways(char **maze, int x_max, int y_max, Adjacents *adjac, int x, int y);
-void rand_solver_cpu(const short *h_lin_maze, int x_start, int y_start, int x_ext, int y_ext, int n);
-
+float rand_solver_cpu(const short *h_lin_maze, int x_dim, int y_dim, int x_ext, int y_ext, int n, int *x_array, int *y_array, int max_steps);
+char **performance_maze_init(Point start, Point *solution, int x_max, int y_max);
 
 
 #endif //MAIN_CU_MAZE_FUNC_CUH
